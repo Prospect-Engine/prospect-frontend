@@ -132,7 +132,8 @@ export function TopBar({ className }: TopBarProps) {
   const [isTogglingTheme, setIsTogglingTheme] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const currentAppId = detectCurrentApp(router.pathname);
+  const isOnSettingsPage = router.pathname.startsWith("/settings");
+  const currentAppId = isOnSettingsPage ? null : detectCurrentApp(router.pathname);
 
   useEffect(() => {
     setMounted(true);
@@ -273,9 +274,21 @@ export function TopBar({ className }: TopBarProps) {
           size="sm"
           onClick={() => router.push("/settings")}
           aria-label="Settings"
-          className="w-8 h-8 p-0 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+          className={cn(
+            "w-8 h-8 p-0 rounded-lg transition-all",
+            isOnSettingsPage
+              ? "bg-black/[0.06] dark:bg-white/[0.1]"
+              : "hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+          )}
         >
-          <Settings className="w-4 h-4 text-muted-foreground" />
+          <Settings
+            className={cn(
+              "w-4 h-4",
+              isOnSettingsPage
+                ? "text-foreground"
+                : "text-muted-foreground"
+            )}
+          />
         </Button>
 
         {/* Team Chat */}
