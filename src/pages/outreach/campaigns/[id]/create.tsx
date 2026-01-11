@@ -396,7 +396,7 @@ export default function CreateCampaignPage() {
 
           {/* Horizontal Stepper */}
           <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 py-6">
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
               <HorizontalStepper
                 steps={steps}
                 activeStep={activeStep}
@@ -413,9 +413,9 @@ export default function CreateCampaignPage() {
           </div>
 
           {/* Main Content Area */}
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm rounded-2xl overflow-hidden">
-              <CardContent className="p-6 sm:p-8">
+              <CardContent className="p-6 sm:p-8 lg:p-10">
                 {isLoading ? (
                   <div className="flex items-center justify-center h-64">
                     <div className="flex flex-col items-center gap-3">

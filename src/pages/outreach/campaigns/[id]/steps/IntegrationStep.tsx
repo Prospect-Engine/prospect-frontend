@@ -297,50 +297,22 @@ export default function IntegrationStep({
             </Button>
           )}
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <LinkedInLogo className="w-5 h-5 text-[#0A66C2]" />
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <LinkedInLogo className="w-6 h-6 text-[#0A66C2]" />
               LinkedIn Senders
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
-              Select LinkedIn accounts to use in this campaign
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Info className="w-3.5 h-3.5 text-gray-400" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-xs text-xs">
-                      You can select multiple accounts to distribute your outreach
-                      and increase daily sending capacity.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Select which LinkedIn accounts will send messages for this campaign
             </p>
           </div>
         </div>
-
-        <Button
-          onClick={handleContinue}
-          disabled={isDisabled || isSaving}
-          className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-5"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>
-              Continue
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </>
-          )}
-        </Button>
       </div>
 
-      {/* Table */}
-      <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+      {/* Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content - Table */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
@@ -554,31 +526,100 @@ export default function IntegrationStep({
             )}
           </tbody>
         </table>
-      </div>
+          </div>
 
-      {/* Footer Status */}
-      <div className="flex items-center justify-between pt-2">
-        <div className="flex items-center gap-2">
-          {uniqueSelectedCount > 0 ? (
-            <>
-              <CheckCircle className="w-5 h-5 text-emerald-500" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {uniqueSelectedCount} sender{uniqueSelectedCount > 1 ? "s" : ""} selected
-              </span>
-            </>
-          ) : (
-            <>
-              <AlertCircle className="w-5 h-5 text-amber-500" />
-              <span className="text-sm text-amber-600 dark:text-amber-400">
-                Select at least one sender to continue
-              </span>
-            </>
-          )}
+          {/* Footer Status */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {uniqueSelectedCount > 0 ? (
+                <>
+                  <CheckCircle className="w-5 h-5 text-emerald-500" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {uniqueSelectedCount} sender{uniqueSelectedCount > 1 ? "s" : ""} selected
+                  </span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="w-5 h-5 text-amber-500" />
+                  <span className="text-sm text-amber-600 dark:text-amber-400">
+                    Select at least one sender to continue
+                  </span>
+                </>
+              )}
+            </div>
+
+            <span className="text-xs text-gray-400">
+              {allProfiles.length} account{allProfiles.length !== 1 ? "s" : ""} available
+            </span>
+          </div>
         </div>
 
-        <span className="text-xs text-gray-400">
-          {allProfiles.length} account{allProfiles.length !== 1 ? "s" : ""} available
-        </span>
+        {/* Sidebar - Tips & Info */}
+        <div className="lg:col-span-1 space-y-4">
+          {/* Selection Summary Card */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800/50 rounded-xl p-5">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+              <Users className="w-4 h-4 text-blue-600" />
+              Selection Summary
+            </h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Selected accounts</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white">{uniqueSelectedCount}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Daily capacity</span>
+                <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                  ~{uniqueSelectedProfiles.reduce((sum, id) => {
+                    const profile = allProfiles.find(p => p.id === id);
+                    return sum + (profile?.daily_limit || 40);
+                  }, 0)} connections
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Tips Card */}
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+              <Info className="w-4 h-4 text-gray-500" />
+              Quick Tips
+            </h3>
+            <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+              <li className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 flex-shrink-0" />
+                <span>Select multiple accounts to increase your daily sending capacity</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                <span>Premium accounts have higher connection limits and InMail access</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 flex-shrink-0" />
+                <span>Keep accounts connected to avoid campaign interruptions</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Continue Button */}
+          <Button
+            onClick={handleContinue}
+            disabled={isDisabled || isSaving}
+            className="w-full bg-black hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 dark:text-black text-white rounded-xl h-12 text-base font-medium"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                Continue to Leads
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );
