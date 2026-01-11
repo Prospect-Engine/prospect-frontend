@@ -9,6 +9,18 @@ const getStorageItem = (key: string): string => {
   return "";
 };
 
+// Helper to get cookie value by name (SSR-safe)
+const getCookie = (name: string): string | null => {
+  if (typeof document === "undefined") return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    const cookieValue = parts.pop()?.split(";").shift();
+    return cookieValue || null;
+  }
+  return null;
+};
+
 // CRM configuration with lazy access to localStorage
 const getCrmConfig = () => ({
   accessToken: getStorageItem("crm_access_token"),
@@ -16,6 +28,64 @@ const getCrmConfig = () => ({
   organizationId: getStorageItem("selectedOrganizationId"),
   baseUrl: process.env.NEXT_PUBLIC_CRM_BACKEND_URL,
 });
+
+// Flag to prevent multiple sync attempts
+let crmSyncInProgress = false;
+let crmSyncAttempted = false;
+
+/**
+ * Attempt to sync CRM authentication using the outreach tenant ID.
+ * This should be called when CRM token is missing but user is authenticated in outreach.
+ */
+export async function syncCrmAuthentication(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (crmSyncInProgress || crmSyncAttempted) return false;
+
+  // Check if we already have a CRM token
+  const existingToken = getStorageItem("crm_access_token");
+  if (existingToken) return true;
+
+  // Get the access_token cookie from outreach
+  const accessToken = getCookie("access_token");
+  if (!accessToken) return false;
+
+  crmSyncInProgress = true;
+  crmSyncAttempted = true;
+
+  try {
+    // Decode the JWT to get tenant_id (organization ID)
+    const tokenParts = accessToken.split(".");
+    if (tokenParts.length !== 3) return false;
+
+    const payload = JSON.parse(atob(tokenParts[1]));
+    const tenantId = payload.tenant_id;
+
+    if (!tenantId) return false;
+
+    // Call tenant-login on CRM backend to get CRM tokens
+    const { authService } = await import("./sales-services/authService");
+    const response = await authService.tenantLogin({ tenantId });
+
+    if (response.success && response.data?.accessToken) {
+      // Store CRM tokens
+      localStorage.setItem("crm_access_token", response.data.accessToken);
+      if (response.data.refreshToken) {
+        localStorage.setItem("crm_refresh_token", response.data.refreshToken);
+      }
+      if (response.data.user) {
+        localStorage.setItem("crm_user", JSON.stringify(response.data.user));
+      }
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.warn("CRM authentication sync failed:", error);
+    return false;
+  } finally {
+    crmSyncInProgress = false;
+  }
+}
 
 // Response wrapper to match crm_frontend pattern
 export interface ApiResponse<T> {
@@ -325,6 +395,7 @@ export interface QueryContactParams {
 }
 
 // Independent CRM API call function - completely separate from White Walker API
+// Falls back to outreach authentication if CRM token is not available
 async function crmApiCall<T extends Record<string, any> = any>(
   endpoint: string,
   options: {
@@ -357,19 +428,30 @@ async function crmApiCall<T extends Record<string, any> = any>(
   let data: any;
 
   try {
-    const fetchParams = {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${getCrmConfig().accessToken}`,
-      },
-      body: method === "GET" ? undefined : JSON.stringify(body),
+    const crmToken = getCrmConfig().accessToken;
+
+    // Build headers - use CRM token if available, otherwise rely on cookies
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
     };
 
-    const response = await fetch(fullUrl, fetchParams);
+    // Only add Authorization header if we have a CRM token
+    if (crmToken) {
+      headers["Authorization"] = `Bearer ${crmToken}`;
+    }
+
+    const fetchParams: RequestInit = {
+      method,
+      headers,
+      body: method === "GET" ? undefined : JSON.stringify(body),
+      // Include credentials to send HTTP-only cookies as fallback auth
+      credentials: "include" as RequestCredentials,
+    };
+
+    let response = await fetch(fullUrl, fetchParams);
 
     status = response.status;
-    const responseText = await response.text();
+    let responseText = await response.text();
 
     try {
       data = JSON.parse(responseText);
@@ -377,11 +459,29 @@ async function crmApiCall<T extends Record<string, any> = any>(
       data = { error: "Invalid JSON response", rawResponse: responseText };
     }
 
-    if (status >= 400) {
+    // If we get a 401 and don't have a CRM token, try to sync authentication
+    if (status === 401 && !crmToken && !crmSyncAttempted) {
+      const synced = await syncCrmAuthentication();
+      if (synced) {
+        // Retry the request with the new token
+        const newToken = getCrmConfig().accessToken;
+        if (newToken) {
+          headers["Authorization"] = `Bearer ${newToken}`;
+          fetchParams.headers = headers;
+          response = await fetch(fullUrl, fetchParams);
+          status = response.status;
+          responseText = await response.text();
+          try {
+            data = JSON.parse(responseText);
+          } catch {
+            data = { error: "Invalid JSON response", rawResponse: responseText };
+          }
+        }
+      }
     }
 
-    // Handle errors
-    if (!response.ok) {
+    // Handle errors - but don't show toast for 401 as it might just mean CRM sync isn't available
+    if (!response.ok && status !== 401) {
       if (typeof window !== "undefined") {
         // Only import and use UI components on client side
         const { default: ShowShortMessage } = await import(
@@ -399,10 +499,8 @@ async function crmApiCall<T extends Record<string, any> = any>(
         error instanceof TypeError &&
         error.message.includes("Failed to fetch")
       ) {
-        ShowShortMessage(
-          "Cannot connect to CRM backend. Please check if the CRM server is running.",
-          "error"
-        );
+        // Don't show error for CRM connection issues - let the page fall back to mock data
+        console.warn("Cannot connect to CRM backend:", error);
       } else {
         ShowShortMessage("CRM API request failed. Please try again.", "error");
       }
