@@ -9,7 +9,8 @@ import { useRouter } from "next/router";
 import AppLayout from "@/components/layout/AppLayout";
 import AuthGuard from "@/components/auth/AuthGuard";
 import { CrmApiService, Contact } from "@/services/crmApi";
-import { OutreachSyncService, OutreachSyncResult } from "@/services/outreachSyncService";
+import { OutreachSyncService, OutreachSyncResult, OutreachConnection } from "@/services/outreachSyncService";
+import outreachConfig from "@/configs/outreach";
 import ShowShortMessage from "@/base-component/ShowShortMessage";
 import Link from "next/link";
 import {
@@ -528,7 +529,96 @@ export default function LeadsPage() {
 
   const ITEMS_PER_PAGE = 20;
 
-  // Fetch contacts
+  // Convert Ashborn connection to Contact format
+  const connectionToContact = (conn: any): Contact => {
+    const nameParts = (conn.name || "").split(" ");
+    const firstName = conn.first_name || nameParts[0] || "";
+    const lastName = conn.last_name || nameParts.slice(1).join(" ") || "";
+
+    return {
+      id: conn.id || conn.urn_id,
+      name: conn.name || `${firstName} ${lastName}`.trim(),
+      firstName,
+      lastName,
+      email: conn.email,
+      phoneNumber: conn.phone,
+      jobTitle: conn.position || conn.job_title,
+      linkedinUrl: conn.profile_url,
+      linkedinUrnId: conn.urn_id,
+      linkedinPublicId: conn.public_id,
+      linkedinHeadline: conn.headline,
+      linkedinProfilePhoto: conn.profile_pic_url,
+      linkedinLocation: conn.location,
+      linkedinAbout: conn.about,
+      linkedinConnectedOn: conn.connected_on,
+      linkedinConnectionDegree: conn.connection_degree || "1st",
+      linkedinIsPremium: conn.is_premium,
+      linkedinIsOpenProfile: conn.is_open_profile,
+      linkedinIsOpenToWork: conn.is_open_to_work,
+      linkedinMutualConnectionsCount: conn.mutual_connections_count,
+      linkedinCompanySize: conn.company_size,
+      linkedinCompanyIndustry: conn.company_industry,
+      linkedinSkills: conn.skills,
+      linkedinExperience: conn.work_experience,
+      linkedinEducation: conn.education,
+      linkedinLanguages: conn.languages,
+      source: "LINKEDIN_OUTREACH",
+      status: "LEAD",
+      priority: "WARM",
+      leadScore: 50,
+      company: conn.company ? {
+        id: "",
+        name: conn.company,
+        industry: conn.company_industry,
+        size: conn.company_size,
+      } : undefined,
+      createdAt: conn.connected_on || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      workspaceId: "",
+    };
+  };
+
+  // Fetch connections directly from Ashborn (outreach backend)
+  const fetchOutreachConnections = async (): Promise<Contact[]> => {
+    try {
+      const response = await fetch(outreachConfig.getConnectionList, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          page: page,
+          limit: ITEMS_PER_PAGE,
+          orderBy: "connected_on",
+          sortType: "desc",
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("Failed to fetch outreach connections:", response.status);
+        return [];
+      }
+
+      const result = await response.json();
+      // Handle Ashborn wrapped response format { success, data: { data: [...] } }
+      let connections: any[] = [];
+      if (result && result.data && Array.isArray(result.data.data)) {
+        connections = result.data.data;
+      } else if (result && Array.isArray(result.data)) {
+        connections = result.data;
+      } else if (Array.isArray(result)) {
+        connections = result;
+      }
+
+      return connections.map(connectionToContact);
+    } catch (error) {
+      console.error("Error fetching outreach connections:", error);
+      return [];
+    }
+  };
+
+  // Fetch contacts - try CRM first, fallback to Ashborn connections
   const fetchContacts = useCallback(async () => {
     setLoading(true);
     try {
@@ -547,22 +637,37 @@ export default function LeadsPage() {
         params.source = sourceFilter;
       }
 
+      // Try CRM first
       const { data, status } = await CrmApiService.getContacts(params);
 
-      if (status >= 200 && status < 300) {
-        const contactsData = Array.isArray(data) && data.length > 0 ? data : MOCK_CONTACTS;
-        setContacts(contactsData);
-        setTotalPages(Math.max(1, Math.ceil(contactsData.length / ITEMS_PER_PAGE)));
+      if (status >= 200 && status < 300 && Array.isArray(data) && data.length > 0) {
+        setContacts(data);
+        setTotalPages(Math.max(1, Math.ceil(data.length / ITEMS_PER_PAGE)));
       } else {
-        // Fallback to mock data
-        setContacts(MOCK_CONTACTS);
-        setTotalPages(1);
+        // CRM returned empty or error - try fetching from Ashborn directly
+        console.log("CRM returned no data, fetching from Ashborn...");
+        const outreachContacts = await fetchOutreachConnections();
+
+        if (outreachContacts.length > 0) {
+          setContacts(outreachContacts);
+          setTotalPages(Math.max(1, Math.ceil(outreachContacts.length / ITEMS_PER_PAGE)));
+        } else {
+          // Fallback to mock data
+          setContacts(MOCK_CONTACTS);
+          setTotalPages(1);
+        }
       }
     } catch (error) {
       console.error("Error fetching contacts:", error);
-      // Use mock data on error
-      setContacts(MOCK_CONTACTS);
-      setTotalPages(1);
+      // Try Ashborn as fallback
+      const outreachContacts = await fetchOutreachConnections();
+      if (outreachContacts.length > 0) {
+        setContacts(outreachContacts);
+        setTotalPages(Math.max(1, Math.ceil(outreachContacts.length / ITEMS_PER_PAGE)));
+      } else {
+        setContacts(MOCK_CONTACTS);
+        setTotalPages(1);
+      }
     } finally {
       setLoading(false);
     }
