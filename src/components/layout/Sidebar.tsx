@@ -9,16 +9,11 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  CreditCard,
   Megaphone,
   Users,
-  MessageSquare,
-  Wrench,
   BarChart3,
   Mail,
   Smartphone,
-  Layout,
-  UserX,
   PieChart,
   History,
   Inbox,
@@ -59,9 +54,7 @@ import {
   Plug,
   Sliders,
   CalendarCheck,
-  FormInput,
   Handshake,
-  Activity,
   Lightbulb,
   type LucideIcon,
 } from "lucide-react";
@@ -468,11 +461,9 @@ const services: ServiceNav[] = [
   },
 ];
 
-// Settings section - Universal settings first, then app-specific
-const settingsItems: NavItem[] = [
-  { name: "Settings", href: "/settings", icon: Settings, description: "Universal settings" },
-  { name: "Integrations", href: "/settings/integrations", icon: Zap },
-  { name: "Billing", href: "/billing", icon: CreditCard },
+// Bottom nav items (non-collapsible)
+const bottomNavItems: NavItem[] = [
+  { name: "Integrations", href: "/integration", icon: Zap },
 ];
 
 interface SidebarProps {
@@ -494,7 +485,6 @@ export function Sidebar({ activePage }: SidebarProps) {
   const pathname = usePathname() || "";
   const [collapsed, setCollapsed] = useState(false);
   const [expandedServices, setExpandedServices] = useState<string[]>([]);
-  const [settingsExpanded, setSettingsExpanded] = useState(false);
   const { user } = useAuth();
   const { permissions } = usePermissions();
 
@@ -506,22 +496,17 @@ export function Sidebar({ activePage }: SidebarProps) {
   // Permission checks
   const isImpersonated = !!user?.is_impersonate && !!user?.workspace_id;
   const notOwner = user?.role !== "OWNER";
-  const hasViewBillingPermission = permissions?.includes("VIEW_BILLING");
   const hasIntegrateAccountPermission = permissions?.includes("INTEGRATE_ACCOUNT");
-  const hasManageTeamsPermission = permissions?.includes("MANAGE_TEAMS");
 
-  // Filter settings items based on permissions
-  const filteredSettingsItems = useMemo(() => {
-    return settingsItems.filter((item) => {
-      if (item.name === "Billing" && isImpersonated && notOwner && !hasViewBillingPermission) {
-        return false;
-      }
+  // Filter bottom nav items based on permissions
+  const filteredBottomNavItems = useMemo(() => {
+    return bottomNavItems.filter((item) => {
       if (item.name === "Integrations" && isImpersonated && notOwner && !hasIntegrateAccountPermission) {
         return false;
       }
       return true;
     });
-  }, [isImpersonated, notOwner, hasViewBillingPermission, hasIntegrateAccountPermission]);
+  }, [isImpersonated, notOwner, hasIntegrateAccountPermission]);
 
   // Auto-expand service if user navigates to one of its pages (only on route change)
   useEffect(() => {
@@ -534,12 +519,6 @@ export function Sidebar({ activePage }: SidebarProps) {
       setExpandedServices((prev) =>
         prev.includes(activeService.id) ? prev : [...prev, activeService.id]
       );
-    }
-
-    // Auto-expand settings if on a settings page
-    const isOnSettingsPage = settingsItems.some((item) => pathname.startsWith(item.href));
-    if (isOnSettingsPage) {
-      setSettingsExpanded(true);
     }
   }, [pathname]); // Only run on pathname change, not on state changes
 
@@ -746,87 +725,47 @@ export function Sidebar({ activePage }: SidebarProps) {
           </div>
         </div>
 
-        {/* Settings Section */}
-        <div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setSettingsExpanded(!settingsExpanded);
-            }}
-            className={cn(
-              "w-full group flex items-center gap-3 px-3 py-2.5 rounded-xl",
-              "transition-all duration-200 ease-out",
-              collapsed && "justify-center",
-              filteredSettingsItems.some((item) => pathname.startsWith(item.href))
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
-            )}
-          >
-            <div
-              className={cn(
-                "p-1.5 rounded-lg transition-all duration-200",
-                filteredSettingsItems.some((item) => pathname.startsWith(item.href))
-                  ? "bg-slate-100 dark:bg-slate-500/10"
-                  : "bg-transparent"
-              )}
-            >
-              <Settings
+        {/* Bottom Nav Items (Integrations) */}
+        <div className="space-y-1">
+          {filteredBottomNavItems.map((item) => {
+            const isActive = pathname.startsWith(item.href);
+            const ItemIcon = item.icon;
+
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
                 className={cn(
-                  "h-[16px] w-[16px] flex-shrink-0",
-                  filteredSettingsItems.some((item) => pathname.startsWith(item.href))
-                    ? "text-slate-600"
-                    : ""
+                  "group flex items-center gap-3 px-3 py-2.5 rounded-xl",
+                  "transition-all duration-200 ease-out",
+                  collapsed && "justify-center",
+                  isActive
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
                 )}
-              />
-            </div>
-            {!collapsed && (
-              <>
-                <span className="flex-1 text-[14px] font-medium text-left">
-                  Settings
-                </span>
-                <ChevronDown
+                title={collapsed ? item.name : undefined}
+              >
+                <div
                   className={cn(
-                    "h-4 w-4 transition-transform duration-200",
-                    settingsExpanded && "rotate-180"
+                    "p-1.5 rounded-lg transition-all duration-200",
+                    isActive
+                      ? "bg-amber-50 dark:bg-amber-500/10"
+                      : "bg-transparent"
                   )}
-                />
-              </>
-            )}
-          </button>
-
-          {/* Settings Sub-items - show dropdown for both collapsed and expanded */}
-          {settingsExpanded && (
-            <div className={cn(
-              "mt-1 space-y-0.5",
-              collapsed
-                ? "px-1"
-                : "ml-4 border-l border-black/[0.06] dark:border-white/[0.08] pl-3"
-            )}>
-              {filteredSettingsItems.map((item) => {
-                const isActive = pathname.startsWith(item.href);
-                const ItemIcon = item.icon;
-
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
+                >
+                  <ItemIcon
                     className={cn(
-                      "group flex items-center gap-2.5 px-3 py-2 rounded-lg",
-                      "transition-all duration-200 ease-out text-[13px]",
-                      collapsed && "justify-center",
-                      isActive
-                        ? "font-medium text-slate-600 bg-slate-50 dark:bg-slate-500/10"
-                        : "text-muted-foreground hover:text-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+                      "h-[16px] w-[16px] flex-shrink-0",
+                      isActive ? "text-amber-600" : ""
                     )}
-                    title={collapsed ? item.name : undefined}
-                  >
-                    <ItemIcon className="h-[14px] w-[14px] flex-shrink-0" />
-                    {!collapsed && <span className="flex-1">{item.name}</span>}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+                  />
+                </div>
+                {!collapsed && (
+                  <span className="text-[14px] font-medium">{item.name}</span>
+                )}
+              </Link>
+            );
+          })}
         </div>
       </nav>
 

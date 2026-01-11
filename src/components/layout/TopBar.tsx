@@ -432,7 +432,7 @@ export function TopBar({ className }: TopBarProps) {
               <div className="space-y-1">
                 <div
                   className="flex items-center px-3 py-2 space-x-3 rounded-xl transition-colors duration-200 cursor-pointer hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
-                  onClick={() => router.push("/profile")}
+                  onClick={() => router.push("/settings")}
                 >
                   <div className="flex justify-center items-center w-8 h-8 bg-black/[0.04] dark:bg-white/[0.06] rounded-lg">
                     <UserCircle className="w-4 h-4 text-muted-foreground" />
