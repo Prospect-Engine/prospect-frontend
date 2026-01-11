@@ -33,6 +33,7 @@ import {
   Sun,
   Moon,
   Megaphone,
+  Settings,
   LucideIcon,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -265,6 +266,17 @@ export function TopBar({ className }: TopBarProps) {
             <Sun className="w-4 h-4 text-muted-foreground" />
           </Button>
         )}
+
+        {/* Settings */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push("/settings")}
+          aria-label="Settings"
+          className="w-8 h-8 p-0 rounded-lg hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+        >
+          <Settings className="w-4 h-4 text-muted-foreground" />
+        </Button>
 
         {/* Team Chat */}
         <ChatButton />
