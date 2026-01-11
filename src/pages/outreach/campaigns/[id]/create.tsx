@@ -49,7 +49,7 @@ interface Campaign {
 }
 
 export const steps = [
-  { label: "Integration", editLabel: "Edit integration", icon: "1" },
+  { label: "LinkedIn Senders", editLabel: "Edit senders", icon: "1" },
   { label: "Leads", editLabel: "Edit leads", icon: "2" },
   { label: "Sequence", editLabel: "Edit sequence", icon: "3" },
   { label: "Schedule", editLabel: "Edit schedule", icon: "4" },
